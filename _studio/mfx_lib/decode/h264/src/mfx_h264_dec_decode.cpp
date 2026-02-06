@@ -222,6 +222,11 @@ mfxStatus VideoDECODEH264::Init(mfxVideoParam *par)
 
     eMFXHWType type = m_core->GetHWType();
 
+    if (par->mfx.FrameInfo.FourCC == MFX_FOURCC_P010 ||
+        par->mfx.FrameInfo.FourCC == MFX_FOURCC_P210 ||
+        par->mfx.FrameInfo.FourCC == MFX_FOURCC_Y210)
+        par->mfx.FrameInfo.Shift = 1;
+
     mfxStatus mfxSts = CheckVideoParamDecoders(par, type);
     MFX_CHECK(mfxSts >= MFX_ERR_NONE, MFX_ERR_INVALID_VIDEO_PARAM);
 
@@ -405,16 +410,47 @@ mfxStatus VideoDECODEH264::QueryImplsDescription(
 #endif
         , MFX_PROFILE_AVC_MULTIVIEW_HIGH
         , MFX_PROFILE_AVC_STEREO_HIGH
+        , MFX_PROFILE_AVC_HIGH10
     };
     const mfxResourceType SupportedMemTypes[] =
     {
         MFX_RESOURCE_SYSTEM_SURFACE
         , MFX_RESOURCE_VA_SURFACE
     };
-    const mfxU32 SupportedFourCC[] =
-    {
-        MFX_FOURCC_NV12
+
+    std::vector<mfxU32> SupportedFourCC = {MFX_FOURCC_NV12};
+    VADisplay vaDisplay;
+    mfxI32 numProfiles = 0, numEntrypoints = 0;
+
+    mfxStatus mfxSts = core.GetHandle(MFX_HANDLE_VA_DISPLAY, &vaDisplay);
+    MFX_CHECK(MFX_ERR_NONE == mfxSts, MFX_ERR_INCOMPATIBLE_VIDEO_PARAM);
+
+    std::vector<VAProfile> avc10BitProfiles = {
+        VAProfileH264High10,
+        VAProfileH264High422
     };
+    std::vector <VAProfile> profileList(vaMaxNumProfiles(vaDisplay)-1);
+    std::vector <VAEntrypoint> entrypointList(vaMaxNumEntrypoints(vaDisplay)-1);
+
+    for (auto profile : avc10BitProfiles)
+    {
+        VAStatus status = vaQueryConfigEntrypoints(vaDisplay, profile, entrypointList.data(), &numEntrypoints);
+        if (status == VA_STATUS_SUCCESS)
+        {
+            for (mfxI32 i = 0; i < numEntrypoints; i++)
+            {
+                if (VAEntrypointVLD == entrypointList[i])
+                {
+                    switch(profile)
+                    {
+                        case VAProfileH264High10: SupportedFourCC.push_back(MFX_FOURCC_P010); break;
+                        case VAProfileH264High422: SupportedFourCC.push_back(MFX_FOURCC_Y210); break;
+                        default: break;
+                    };
+                }
+            }
+        }
+    }
 
     caps.CodecID = MFX_CODEC_AVC;
     caps.MaxcodecLevel = MFX_LEVEL_AVC_62;
@@ -807,6 +843,15 @@ mfxStatus VideoDECODEH264::GetVideoParam(mfxVideoParam *par)
         }
     }
 
+    switch (par->mfx.FrameInfo.FourCC)
+    {
+    case MFX_FOURCC_P010:
+    case MFX_FOURCC_P210:
+    case MFX_FOURCC_Y210:
+        par->mfx.FrameInfo.Shift = 1;
+    default:
+        break;
+    }
 
     TRACE_EVENT(MFX_TRACE_API_DECODE_GETVIDEOPARAM_TASK, EVENT_TYPE_END, TR_KEY_MFX_API, make_event_data(MFX_ERR_NONE));
 

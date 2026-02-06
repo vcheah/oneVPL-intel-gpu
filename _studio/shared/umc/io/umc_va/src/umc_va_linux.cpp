@@ -141,6 +141,11 @@ VAProfile g_H264Profiles[] =
     VAProfileH264High, VAProfileH264Main, VAProfileH264ConstrainedBaseline
 };
 
+VAProfile g_H26410BitProfiles[] =
+{
+    VAProfileH264High10, VAProfileH264High422
+};
+
 VAProfile g_H265Profiles[] =
 {
     VAProfileHEVCMain
@@ -210,6 +215,9 @@ VAProfile get_next_va_profile(uint32_t umc_codec, uint32_t profile)
         break;
     case UMC::VA_H264:
         if (profile < UMC_ARRAY_SIZE(g_H264Profiles)) va_profile = g_H264Profiles[profile];
+        break;
+    case UMC::VA_H264 | UMC::VA_PROFILE_REXT | UMC::VA_PROFILE_10:
+	if (profile < UMC_ARRAY_SIZE(g_H26410BitProfiles)) va_profile = g_H26410BitProfiles[profile];
         break;
     case UMC::VA_H265:
         if (profile < UMC_ARRAY_SIZE(g_H265Profiles)) va_profile = g_H265Profiles[profile];
