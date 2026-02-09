@@ -58,6 +58,12 @@ mfxU32 ChooseProfile(mfxVideoParam const* param, eMFXHWType)
         }
 #endif
         }
+
+        if (param->mfx.CodecProfile == MFX_PROFILE_AVC_HIGH10 ||
+            param->mfx.CodecProfile == MFX_PROFILE_AVC_HIGH_422)
+        {
+            profile |= VA_PROFILE_REXT | VA_PROFILE_10;
+        }
         break;
 
     case MFX_CODEC_JPEG:
